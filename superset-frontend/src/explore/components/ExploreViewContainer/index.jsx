@@ -78,6 +78,8 @@ const propTypes = {
   timeout: PropTypes.number,
   impressionId: PropTypes.string,
   vizType: PropTypes.string,
+  saveAction: PropTypes.string,
+  isSaveModalVisible: PropTypes.bool,
 };
 
 const ExploreContainer = styled.div`
@@ -232,7 +234,6 @@ function ExploreViewContainer(props) {
     props.controls,
   );
 
-  const [showingModal, setShowingModal] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [shouldForceUpdate, setShouldForceUpdate] = useState(-1);
   const tabId = useTabId();
@@ -328,10 +329,6 @@ function ExploreViewContainer(props) {
     if (props.chart && props.chart.queryController) {
       props.chart.queryController.abort();
     }
-  }
-
-  function toggleModal() {
-    setShowingModal(!showingModal);
   }
 
   function toggleCollapse() {
@@ -462,6 +459,14 @@ function ExploreViewContainer(props) {
     return false;
   }, [lastQueriedControls, props.controls]);
 
+  useChangeEffect(props.saveAction, () => {
+    if (['saveas', 'overwrite'].includes(props.saveAction)) {
+      onQuery();
+      addHistory({ isReplace: true });
+      props.actions.setSaveAction(null);
+    }
+  });
+
   useEffect(() => {
     if (props.ownState !== undefined) {
       onQuery();
@@ -549,7 +554,6 @@ function ExploreViewContainer(props) {
         ownState={props.ownState}
         user={props.user}
         reports={props.reports}
-        onSaveChart={toggleModal}
         saveDisabled={errorMessage || props.chart.chartStatus === 'loading'}
       />
       <ExplorePanelContainer id="explore-container">
@@ -577,15 +581,6 @@ function ExploreViewContainer(props) {
             }
           `}
         />
-        {showingModal && (
-          <SaveModal
-            onHide={toggleModal}
-            actions={props.actions}
-            form_data={props.form_data}
-            sliceName={props.sliceName}
-            dashboardId={props.dashboardId}
-          />
-        )}
         <Resizable
           onResizeStop={(evt, direction, ref, d) => {
             setShouldForceUpdate(d?.width);
@@ -686,6 +681,15 @@ function ExploreViewContainer(props) {
           {renderChartContainer()}
         </div>
       </ExplorePanelContainer>
+      {props.isSaveModalVisible && (
+        <SaveModal
+          addDangerToast={props.addDangerToast}
+          actions={props.actions}
+          form_data={props.form_data}
+          sliceName={props.sliceName}
+          dashboardId={props.dashboardId}
+        />
+      )}
     </ExploreContainer>
   );
 }
@@ -693,8 +697,19 @@ function ExploreViewContainer(props) {
 ExploreViewContainer.propTypes = propTypes;
 
 function mapStateToProps(state) {
-  const { explore, charts, impressionId, dataMask, reports } = state;
-  const form_data = getFormDataFromControls(explore.controls);
+  const {
+    explore,
+    charts,
+    common,
+    impressionId,
+    dataMask,
+    reports,
+    user,
+    saveModal,
+  } = state;
+  const { controls, slice, datasource, metadata } = explore;
+  const form_data = getFormDataFromControls(controls);
+  const slice_id = form_data.slice_id ?? slice?.slice_id ?? 0; // 0 - unsaved chart
   form_data.extra_form_data = mergeExtraFormData(
     { ...form_data.extra_form_data },
     {
@@ -742,6 +757,9 @@ function mapStateToProps(state) {
     user: explore.user,
     exploreState: explore,
     reports,
+    metadata,
+    saveAction: explore.saveAction,
+    isSaveModalVisible: saveModal.isVisible,
   };
 }
 
@@ -760,4 +778,4 @@ function mapDispatchToProps(dispatch) {
 export default connect(
   mapStateToProps,
   mapDispatchToProps,
-)(ExploreViewContainer);
+)(withToasts(React.memo(ExploreViewContainer)));
