@@ -25,6 +25,7 @@ import {
   css,
   SupersetClient,
   t,
+  tn,
 } from '@superset-ui/core';
 import { chartPropShape } from 'src/dashboard/util/propShapes';
 import AlteredSliceTag from 'src/components/AlteredSliceTag';
@@ -151,6 +152,49 @@ export const ExploreChartHeader = ({
       openPropertiesModal,
       ownState,
     );
+
+  const metadataBar = useMemo(() => {
+    if (!metadata) {
+      return null;
+    }
+    const items = [];
+    items.push({
+      type: MetadataType.DASHBOARDS,
+      title:
+        metadata.dashboards.length > 0
+          ? tn(
+              'Added to 1 dashboard',
+              'Added to %s dashboards',
+              metadata.dashboards.length,
+              metadata.dashboards.length,
+            )
+          : t('Not added to any dashboard'),
+      description:
+        metadata.dashboards.length > 0
+          ? t(
+              'You can preview the list of dashboards in the chart settings dropdown.',
+            )
+          : undefined,
+    });
+    items.push({
+      type: MetadataType.LAST_MODIFIED,
+      value: metadata.changed_on_humanized,
+      modifiedBy: metadata.changed_by || t('Not available'),
+    });
+    items.push({
+      type: MetadataType.OWNER,
+      createdBy: metadata.created_by || t('Not available'),
+      owners: metadata.owners.length > 0 ? metadata.owners : t('None'),
+      createdOn: metadata.created_on_humanized,
+    });
+    if (slice?.description) {
+      items.push({
+        type: MetadataType.DESCRIPTION,
+        value: slice?.description,
+      });
+    }
+    return <MetadataBar items={items} tooltipPlacement="bottom" />;
+  }, [metadata, slice?.description]);
 
   const oldSliceName = slice?.slice_name;
   return (
